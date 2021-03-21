@@ -1,13 +1,14 @@
 package com.gjohnson.homesite.database;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.apache.logging.log4j.LogBuilder;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.stream.Collectors;
 
 public class SqlBuilder {
 
-    private static final Log LOGGER = LogFactory.getLog(SqlBuilder.class);
+    private static final Logger logger = LogManager.getLogger();
 
     private final DataModelMapperConfiguration configuration;
 
@@ -87,7 +88,7 @@ public class SqlBuilder {
                 }
             }
         }
-        LOGGER.info("Query: " + sqlQuery.toString());
+        logger.info("Query: {}", sqlQuery);
         return sqlQuery.toString();
     }
 }

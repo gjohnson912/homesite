@@ -71,12 +71,32 @@ public class Query {
         return this.join(new Entity(joinClass), condition, new Entity(parentClass));
     }
 
+    public Query join(Class<?> joinClass, String joinAlias, Condition condition, Class<?> parentClass) {
+        return this.join(new Entity(joinClass, joinAlias), condition, new Entity(parentClass));
+    }
+
+    public Query join(Class<?> joinClass, Condition condition, Class<?> parentClass, String parentAlias) {
+        return this.join(new Entity(joinClass), condition, new Entity(parentClass, parentAlias));
+    }
+
+    public Query join(Class<?> joinClass, String joinAlias, Condition condition, Class<?> parentClass, String parentAlias) {
+        return this.join(new Entity(joinClass, joinAlias), condition, new Entity(parentClass, parentAlias));
+    }
+
     public Query join(Class<?> joinClass, Condition condition, Entity parentEntity) {
         return this.join(new Entity(joinClass), condition, parentEntity);
     }
 
+    public Query join(Class<?> joinClass, String joinAlias, Condition condition, Entity parentEntity) {
+        return this.join(new Entity(joinClass, joinAlias), condition, parentEntity);
+    }
+
     public Query join(Entity joinEntity, Condition condition, Class<?> parentClass) {
         return this.join(joinEntity, condition, new Entity(parentClass));
+    }
+
+    public Query join(Entity joinEntity, Condition condition, Class<?> parentClass, String parentAlias) {
+        return this.join(joinEntity, condition, new Entity(parentClass, parentAlias));
     }
 
     public Query where(Where whereClause) {

@@ -1,9 +1,10 @@
 package com.gjohnson.homesite.database;
 
-import org.apache.logging.log4j.LogBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SqlBuilder {
@@ -16,79 +17,113 @@ public class SqlBuilder {
         this.configuration = configuration;
     }
 
-    public String build(Query query) {
-        final StringBuilder sqlQuery = new StringBuilder("SELECT ");
-        if (query != null) {
-            if (query.getSelectEntities() != null && query.getSelectEntities().size() > 0) {
-                boolean isFirstSelectEntity = true;
-                for (Entity entity : query.getSelectEntities()) {
-                    if (!isFirstSelectEntity) {
-                        sqlQuery.append(", ");
-                    }
-                    sqlQuery.append(this.configuration.getModelToMapperMap().get(entity.getDataModelClass())
-                            .getColumnMappings()
-                            .stream()
-                            .map(columnMapping -> entity.isUseDefaultAlias()
-                                    ? columnMapping.getDefaultFullSelectColumn()
-                                    : columnMapping.getFullSelectColumn(entity.getTableAlias()))
-                            .collect(Collectors.joining(", ")));
-                    isFirstSelectEntity = false;
-                }
-            }
-            if (query.getFromEntity() != null) {
-                final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(
-                        query.getFromEntity().getDataModelClass());
-                final String tableAlias = query.getFromEntity().isUseDefaultAlias()
-                        ? dataModelMapper.getDefaultTableAlias()
-                        : query.getFromEntity().getTableAlias();
-                sqlQuery.append(" FROM ").append(dataModelMapper.getTableName()).append(" ").append(tableAlias);
-            }
-            if (query.getJoins() != null) {
-                for (Join join : query.getJoins()) {
-                    final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(
-                            join.getJoinEntity().getDataModelClass());
-                    final String joinTableAlias = join.getJoinEntity().isUseDefaultAlias()
-                            ? dataModelMapper.getDefaultTableAlias()
-                            : join.getJoinEntity().getTableAlias();
-                    final DataModelMapper<?> parentModelMapper = this.configuration.getModelToMapperMap().get(
-                            join.getParentEntity().getDataModelClass());
-                    final String parentTableAlias = join.getParentEntity().isUseDefaultAlias()
-                            ? parentModelMapper.getDefaultTableAlias()
-                            : join.getParentEntity().getTableAlias();
-                    if (join.isLeftJoin()) {
-                        sqlQuery.append(" LEFT ");
-                    }
-                    sqlQuery.append(" JOIN ")
-                            .append(dataModelMapper.getTableName())
-                            .append(" ")
-                            .append(joinTableAlias)
-                            .append(" ON ")
-                            .append(joinTableAlias)
-                            .append(".")
-                            .append(join.getCondition().getLeftSide())
-                            .append(join.getCondition().getOperator())
-                            .append(parentTableAlias)
-                            .append(".")
-                            .append(join.getCondition().getRightSide());
-                }
-            }
-            if (query.getWhereDefinitions() != null && query.getWhereDefinitions().size() > 0) {
-                sqlQuery.append(" WHERE ");
-                for (Where where : query.getWhereDefinitions()) {
-                    final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(
-                            where.getEntity().getDataModelClass());
-                    final String tableAlias = where.getEntity().isUseDefaultAlias()
-                            ? dataModelMapper.getDefaultTableAlias()
-                            : where.getEntity().getTableAlias();
-                    sqlQuery.append(tableAlias)
-                            .append(".")
-                            .append(where.getCondition().getLeftSide())
-                            .append(where.getCondition().getOperator())
-                            .append(where.getCondition().getRightSide());
-                }
-            }
+    /**
+     * This is the heart of the query API that is built up by the various sql objects. It takes in the {@link Query} and
+     * builds the straight SQL string.
+     *
+     * @param query the fully populated {@link Query}
+     * @return a String with the full sql string to be submitted to the database
+     */
+    public String build(Query query) throws InvalidQueryException {
+        if (query == null) {
+            throw new InvalidQueryException("Query provided was null.");
         }
-        logger.info("Query: {}", sqlQuery);
+        final var sqlQuery = new StringBuilder()
+                .append(this.buildSelectClause(query.getSelectEntities()).orElseThrow(InvalidQueryException::selectException))
+                .append(this.buildFromClause(query.getFromEntity()).orElseThrow(InvalidQueryException::fromException))
+                .append(this.buildJoinClause(query.getJoins()).orElse(""))
+                .append(this.buildWhereClause(query.getWhereDefinitions()).orElse(""));
+        logger.info("Query: {}", sqlQuery.toString());
         return sqlQuery.toString();
+    }
+
+    private Optional<String> buildSelectClause(List<Entity> selectEntities) {
+        if (selectEntities == null || selectEntities.size() == 0) {
+            return Optional.empty();
+        }
+        final StringBuilder selectClause = new StringBuilder("SELECT ");
+        boolean isFirstSelectEntity = true;
+        for (Entity entity : selectEntities) {
+            if (!isFirstSelectEntity) {
+                selectClause.append(", ");
+            }
+            selectClause.append(this.configuration.getModelToMapperMap().get(entity.getDataModelClass())
+                    .getColumnMappings()
+                    .stream()
+                    .map(columnMapping -> entity.isUseDefaultAlias()
+                            ? columnMapping.getDefaultFullSelectColumn()
+                            : columnMapping.getFullSelectColumn(entity.getTableAlias()))
+                    .collect(Collectors.joining(", ")));
+            isFirstSelectEntity = false;
+        }
+
+        return Optional.of(selectClause.toString());
+    }
+
+    private Optional<String> buildFromClause(Entity fromEntity) {
+        if (fromEntity == null) {
+            return Optional.empty();
+        }
+        final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(fromEntity.getDataModelClass());
+        final String tableAlias = fromEntity.isUseDefaultAlias()
+                ? dataModelMapper.getDefaultTableAlias()
+                : fromEntity.getTableAlias();
+        return Optional.of(" FROM " + dataModelMapper.getTableName() + " " + tableAlias);
+    }
+
+    private Optional<String> buildJoinClause(List<Join> joins) {
+        if (joins == null) {
+            return Optional.empty();
+        }
+        var joinClause = new StringBuilder();
+        for (Join join : joins) {
+            final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(
+                    join.getJoinEntity().getDataModelClass());
+            final String joinTableAlias = join.getJoinEntity().isUseDefaultAlias()
+                    ? dataModelMapper.getDefaultTableAlias()
+                    : join.getJoinEntity().getTableAlias();
+            final DataModelMapper<?> parentModelMapper = this.configuration.getModelToMapperMap().get(
+                    join.getParentEntity().getDataModelClass());
+            final String parentTableAlias = join.getParentEntity().isUseDefaultAlias()
+                    ? parentModelMapper.getDefaultTableAlias()
+                    : join.getParentEntity().getTableAlias();
+            if (join.isLeftJoin()) {
+                joinClause.append(" LEFT ");
+            }
+            joinClause.append(" JOIN ")
+                    .append(dataModelMapper.getTableName())
+                    .append(" ")
+                    .append(joinTableAlias)
+                    .append(" ON ")
+                    .append(joinTableAlias)
+                    .append(".")
+                    .append(join.getCondition().getLeftSide())
+                    .append(join.getCondition().getOperator())
+                    .append(parentTableAlias)
+                    .append(".")
+                    .append(join.getCondition().getRightSide());
+        }
+        return Optional.of(joinClause.toString());
+    }
+
+    private Optional<String> buildWhereClause(List<Where> whereDefinitions) {
+        if (whereDefinitions == null || whereDefinitions.size() == 0) {
+            return Optional.empty();
+        }
+
+        var whereClause = new StringBuilder(" WHERE ");
+        for (Where where : whereDefinitions) {
+            final DataModelMapper<?> dataModelMapper = this.configuration.getModelToMapperMap().get(
+                    where.getEntity().getDataModelClass());
+            final String tableAlias = where.getEntity().isUseDefaultAlias()
+                    ? dataModelMapper.getDefaultTableAlias()
+                    : where.getEntity().getTableAlias();
+            whereClause.append(tableAlias)
+                    .append(".")
+                    .append(where.getCondition().getLeftSide())
+                    .append(where.getCondition().getOperator())
+                    .append(where.getCondition().getRightSide());
+        }
+        return Optional.of(whereClause.toString());
     }
 }

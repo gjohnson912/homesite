@@ -45,8 +45,12 @@ public abstract class DataModelMapper<T> implements RowMapper<T> {
             final T model = this.clazz.getDeclaredConstructor().newInstance();
             for (ColumnMapping mapping : getColumnMappings()) {
                 if (mapping.getSetModelProperty() != null) {
-                    mapping.getSetModelProperty().accept(model,
-                            resultSet.getObject(mapping.getDefaultColumnLabel(), mapping.getModelType()));
+                    if (mapping.getModelType().isAssignableFrom(byte[].class)) {
+                        mapping.getSetModelProperty().accept(model, resultSet.getBytes(mapping.getDefaultColumnLabel()));
+                    } else {
+                        mapping.getSetModelProperty().accept(model,
+                                resultSet.getObject(mapping.getDefaultColumnLabel(), mapping.getModelType()));
+                    }
                 }
             }
             return model;

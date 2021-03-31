@@ -3,6 +3,7 @@ package com.gjohnson.homesite;
 import com.gjohnson.homesite.database.DataModelMapperConfiguration;
 import com.gjohnson.homesite.general.address.AddressModelMapper;
 import com.gjohnson.homesite.general.contact.ContactModelMapper;
+import com.gjohnson.homesite.general.contact.resume.ResumeModelMapper;
 import com.gjohnson.homesite.general.education.DegreeDetailModelMapper;
 import com.gjohnson.homesite.general.education.DegreeTypeModelMapper;
 import com.gjohnson.homesite.general.education.EducationModelMapper;
@@ -36,6 +37,7 @@ public class HomesiteConfiguration {
                 Map.entry(EducationTypeModelMapper.MAPPER.getSupportedClass(), EducationTypeModelMapper.MAPPER),
                 Map.entry(EducationModelMapper.MAPPER.getSupportedClass(), EducationModelMapper.MAPPER),
                 Map.entry(EstablishmentModelMapper.MAPPER.getSupportedClass(), EstablishmentModelMapper.MAPPER),
-                Map.entry(EmploymentModelMapper.MAPPER.getSupportedClass(), EmploymentModelMapper.MAPPER)));
+                Map.entry(EmploymentModelMapper.MAPPER.getSupportedClass(), EmploymentModelMapper.MAPPER),
+                Map.entry(ResumeModelMapper.MAPPER.getSupportedClass(), ResumeModelMapper.MAPPER)));
     }
 }

@@ -81,5 +81,16 @@ create table employment (
     modified_time timestamp
 );
 
+create table resume (
+    resume_id serial primary key,
+    contact_id integer references contact(contact_id) not null,
+    document_name varchar(100) not null,
+    document bytea not null,
+    file_type varchar(100),
+    file_extension varchar(25),
+    created_time timestamp not null default now(),
+    modified_time timestamp
+);
+
 grant all privileges on all tables in schema public to homesite_app;
 grant all privileges on all sequences in schema public to homesite_app;
